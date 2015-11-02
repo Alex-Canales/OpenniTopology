@@ -59,8 +59,9 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
     {
         if(i % 500 == 0)
         {
-            std::cout << ( i / topologyRef.size() * 100 ) << "\%";
-            std::cout << " calcultated" << std::endl;
+            std::cout << ( static_cast<float>(i) /
+                    static_cast<float>(topologyRef.size()) * 100.0 );
+            std::cout << " \% calcultated" << std::endl;
         }
 
         if(getHeight(triangles, reference, topologyRef[i], &height))

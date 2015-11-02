@@ -33,6 +33,9 @@ private:
             VideoFrameRef frame);
     bool savePointsToFiles(v_Point points, std::string namefile);
 
+    //TODO: find a way to communicate with the tool
+    bool setOriginFromMachine();  //Returns false if problem
+
     //Save points in the given vector
     bool addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
             vector<Point> &vect);
@@ -45,12 +48,34 @@ private:
     void printInstructions();
 };
 
+bool Manager::setOriginFromMachine()
+{
+    float x, y, z;
+    ifstream file("coordinates.txt");
+    if(!file.is_open())
+        return false;
+
+    file >> x;
+    file >> y;
+    file >> z;
+
+    origin.x = x;
+    origin.y = y;
+    origin.z = z;
+
+    std::cout << "(" << origin.x << "; " << origin.y << "; " <<
+        origin.z << ")" << std::endl;
+
+    file.close();
+    return true;
+}
+
 bool Manager::savePointsToFiles(v_Point points, std::string fileName)
 {
     std::ofstream file;
 
     file.open(fileName.c_str());
-    if (!file.is_open())
+    if(!file.is_open())
         return false;
 
     for(unsigned int i=0; i < points.size(); i++)
@@ -72,7 +97,7 @@ bool Manager::saveRealPointsToFiles(const VideoStream &depthStream,
     std::ofstream file;
 
     file.open(fileName.c_str());
-    if (!file.is_open())
+    if(!file.is_open())
         return false;
 
     DepthPixel* pDepth = (DepthPixel*)frame.getData();
@@ -153,6 +178,7 @@ void Manager::sortAndUniq(vector<Point> &vect)
 
     while(it > begin + 1)
     {
+        //TODO: Should check if Z equals 0
         if(Geometry::pointsEqual2D(*it, *(it-1)))
             vect.erase(it);
         it--;
@@ -179,12 +205,11 @@ bool Manager::addRealPoints(const VideoStream &depthStream,
             if(point.x == 0 && point.y == 0 && point.z == 0)
                 continue;
 
-            point.x -= origin.x;
-            point.y -= origin.y;
-            point.z -= origin.z;
+            point.x += origin.x;
+            point.y += origin.y;
+            point.z += origin.z;
 
             vect.push_back(point);
-            // addPointUniq(vect, point);
         }
     }
 
@@ -219,7 +244,7 @@ bool Manager::initialize()
     if(device.getSensorInfo(SENSOR_DEPTH) != NULL)
     {
         rc = depth.create(device, SENSOR_DEPTH);
-        if (rc != STATUS_OK)
+        if(rc != STATUS_OK)
         {
             std::cerr << "Couldn't create depth stream" << std::endl;
             std::cerr << OpenNI::getExtendedError() << std::endl;
@@ -228,7 +253,7 @@ bool Manager::initialize()
     }
 
     rc = depth.start();
-    if (rc != STATUS_OK)
+    if(rc != STATUS_OK)
     {
         std::cerr << "Couldn't start the depth stream" << std::endl;
         std::cerr << OpenNI::getExtendedError() << std::endl;
@@ -254,7 +279,7 @@ void Manager::mainLoop()
         VideoStream* pStream = &depth;
         rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy,
                 SAMPLE_READ_WAIT_TIMEOUT);
-        if (rc != STATUS_OK)
+        if(rc != STATUS_OK)
         {
             std::cerr << "Wait failed! (timeout is " << SAMPLE_READ_WAIT_TIMEOUT;
             std::cerr <<" ms)" << std::endl;
@@ -323,6 +348,10 @@ void Manager::mainLoop()
                         sortAndUniq(topologyRef);
                         savePointsToFiles(topologyRef, "topologyRef.xyz");
                     }
+                    else if(event.key.keysym.sym == SDLK_g)
+                    {
+                        setOriginFromMachine();
+                    }
                     break;
             }
         }
@@ -361,6 +390,10 @@ void Manager::printInstructions()
     msg += " be.\n";
     msg += "2) Take points of the object (which would be on the table).\n";
     msg += "3) Make the topology.\n";
+    msg += "For setting the origin, modify the coordinates.txt\n";
+    msg += "\tLine 1: x coordinate\n";
+    msg += "\tLine 2: y coordinate\n";
+    msg += "\tLine 3: z coordinate\n";
     msg += "Commands:\n";
     msg += "\tr - Take reference points\n";
     msg += "\te - Take topology reference points\n";
@@ -369,6 +402,7 @@ void Manager::printInstructions()
     msg += "\tp - Print topology reference points\n";
     msg += "\tl - Save in file sorted and unique reference points\n";
     msg += "\tm - Save in file sorted and unique topology reference points\n";
+    msg += "\tg - Set the origin\n";
     msg += "\th - Print instructions\n";
     msg += "\tEsc - Quit\n\n";
 
