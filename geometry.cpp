@@ -157,10 +157,37 @@ bool Geometry::pointInTriangle(Triangle_vertices triangle,
     *coeffAC = (dotABAB * dotACAP - dotACAB * dotABAP) * invDenominator;
     *coeffAB = (dotACAC * dotABAP - dotACAB * dotACAP) * invDenominator;
 
-    if(*coeffAC < 0 || *coeffAB < 0 || (*coeffAC + *coeffAB > 1))
-        return false;
+    // if(*coeffAC < 0 || *coeffAB < 0 || (*coeffAC + *coeffAB > 1))
+    //     return false;
+    //
+    // return true;
+    return (*coeffAC >= 0 && *coeffAB >= 0 && (*coeffAC + *coeffAB <= 1));
+}
 
-    return true;
+v_Centroid Geometry::getCentroids(v_TriangleV triangles, const v_Point &points)
+{
+    v_Centroid centroids;
+    Centroid centroid;
+    Point a, b, c, middleAB;
+    float coefficient = 1/3;
+
+    for(size_t i=0; i < triangles.size(); i++)
+    {
+        a = points[triangles[i].a];
+        b = points[triangles[i].b];
+        c = points[triangles[i].c];
+
+        middleAB.x = (b.x - a.x) / 2 + a.x;
+        middleAB.y = (b.y - a.y) / 2 + a.y;
+
+        centroid.x = (c.x - middleAB.x) * coefficient + middleAB.x;
+        centroid.y = (c.y - middleAB.y) * coefficient + middleAB.y;
+        centroid.index = i;
+
+        centroids.push_back(centroid);
+    }
+
+    return centroids;
 }
 
 int Geometry::findTriangle(v_TriangleV triangles, const v_Point &points,

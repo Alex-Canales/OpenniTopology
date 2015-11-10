@@ -8,6 +8,11 @@ typedef struct {
 } Point;
 
 typedef struct {
+    float x, y;
+    size_t index;  //Index of the triangle
+} Centroid;
+
+typedef struct {
     unsigned int a;
     unsigned int b;
     unsigned int c;
@@ -15,6 +20,7 @@ typedef struct {
 
 typedef std::vector<Triangle_vertices> v_TriangleV;
 typedef std::vector<Point> v_Point;
+typedef std::vector<Centroid> v_Centroid;
 
 class Geometry
 {
@@ -30,7 +36,7 @@ public:
     static bool xyCompare(Point a, Point b);
     static bool compare(Point a, Point b);
 
-    //Points have to be uniques
+    //Points have to be unique
     static v_Point getTopology(v_Point reference, v_Point topologyRef);
     static bool pointOutsideBoundary(Triangle_vertices triangle,
         const v_Point &points, Point coordinate);
@@ -38,6 +44,7 @@ public:
     static bool pointInTriangle(Triangle_vertices triangle,
         const v_Point &points, Point coordinate, float *coeffAB,
         float *coeffAC);
+    static v_Centroid getCentroids(v_TriangleV triangles, const v_Point &points);
     static int findTriangle(v_TriangleV triangles, const v_Point &points,
         Point coordinate, float *coeffAB, float *coeffAC);
     static bool getHeight(v_TriangleV triangles, const v_Point &points,
