@@ -164,7 +164,7 @@ bool Geometry::pointInTriangle(Triangle_vertices triangle,
     return (*coeffAC >= 0 && *coeffAB >= 0 && (*coeffAC + *coeffAB <= 1));
 }
 
-v_Centroid Geometry::getCentroids(v_TriangleV triangles, const v_Point &points)
+v_Centroid Geometry::getCentroids(v_TriangleV &triangles, const v_Point &points)
 {
     v_Centroid centroids;
     Centroid centroid;
@@ -190,7 +190,7 @@ v_Centroid Geometry::getCentroids(v_TriangleV triangles, const v_Point &points)
     return centroids;
 }
 
-int Geometry::findTriangle(v_TriangleV triangles, const v_Point &points,
+int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
         Point coordinate, float *coeffAB, float *coeffAC)
 {
     for(unsigned int i = 0; i < triangles.size(); i++)
@@ -201,7 +201,7 @@ int Geometry::findTriangle(v_TriangleV triangles, const v_Point &points,
     return -1;
 }
 
-bool Geometry::getHeight(v_TriangleV triangles, const v_Point &points,
+bool Geometry::getHeight(v_TriangleV &triangles, const v_Point &points,
         Point coordinate, float *height)
 {
     float coeffAB = 0, coeffAC = 0;

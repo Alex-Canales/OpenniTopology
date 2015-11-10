@@ -38,16 +38,21 @@ public:
 
     //Points have to be unique
     static v_Point getTopology(v_Point reference, v_Point topologyRef);
+
     static bool pointOutsideBoundary(Triangle_vertices triangle,
         const v_Point &points, Point coordinate);
+
     static v_TriangleV triangulate(v_Point points);
+
     static bool pointInTriangle(Triangle_vertices triangle,
         const v_Point &points, Point coordinate, float *coeffAB,
         float *coeffAC);
-    static v_Centroid getCentroids(v_TriangleV triangles, const v_Point &points);
-    static int findTriangle(v_TriangleV triangles, const v_Point &points,
+    static v_Centroid getCentroids(v_TriangleV &triangles, const v_Point &points);
+
+    static int findTriangle(v_TriangleV &triangles, const v_Point &points,
         Point coordinate, float *coeffAB, float *coeffAC);
-    static bool getHeight(v_TriangleV triangles, const v_Point &points,
+
+    static bool getHeight(v_TriangleV &triangles, const v_Point &points,
             Point coordinate, float *height);
 
 };
