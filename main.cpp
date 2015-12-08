@@ -14,7 +14,9 @@
 using namespace openni;
 using namespace std;
 
-//TODO: find better name
+/**
+ * Class setting the parameters and doing the interactions/interface.
+ */
 class Manager
 {
 public:
