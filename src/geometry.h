@@ -2,25 +2,11 @@
 #define _GEOMETRY_H_
 
 #include <vector>
+#include <cmath>
 
-typedef struct {
-    float x, y, z;
-} Point;
-
-typedef struct {
-    float x, y;
-    size_t index;  //Index of the triangle
-} Centroid;
-
-typedef struct {
-    unsigned int a;
-    unsigned int b;
-    unsigned int c;
-} Triangle_vertices;
-
-typedef std::vector<Triangle_vertices> v_TriangleV;
-typedef std::vector<Point> v_Point;
-typedef std::vector<Centroid> v_Centroid;
+#include "top_types.h"
+#include "quadtreeCentroid.h"
+#include "kdtreeCentroid.h"
 
 class Geometry
 {
@@ -54,6 +40,24 @@ public:
 
     static bool getHeight(v_TriangleV &triangles, const v_Point &points,
             Point coordinate, float *height);
+
+
+    static float getStartRange(unsigned int width, unsigned int height,
+        unsigned int pointCloudSize);
+
+    static int findTriangle(v_TriangleV &triangles, const v_Point &points,
+        Point &coordinate, QuadtreeCentroid &quad, float startRange,
+        float *coeffAB, float *coeffAC);
+
+    static bool getHeight(v_TriangleV &triangles, const v_Point &points,
+            Point &coordinate, float *height, QuadtreeCentroid &quad);
+
+    static int findTriangle(v_TriangleV &triangles, const v_Point &points,
+        Point &coordinate, KdtreeCentroid &kdtree, unsigned int numberStart,
+        float *coeffAB, float *coeffAC);
+
+    static bool getHeight(v_TriangleV &triangles, const v_Point &points,
+            Point &coordinate, float *height, KdtreeCentroid &kdtree);
 
 };
 

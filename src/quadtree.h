@@ -265,7 +265,6 @@ public:
         T temp;
         for(i=0; i < result.size() - 1; i++)
         {
-            // for(j=i+1; j < result.size(); j++)
             for(j= result.size()-1; j > i; j--)
             {
                 if(closerToPoint(result[j], result[i], point))

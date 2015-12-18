@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <OpenNI.h>
 
+#include "top_types.h"
 #include "displayer.h"
 #include "geometry.h"
 
@@ -162,7 +163,7 @@ bool Manager::addPointUniq(vector<Point> &vect, Point point)
     // the points (according to x for example) before doing that.
     for(unsigned int i=0; i < vect.size(); i++)
     {
-        if(Geometry::pointsEqual2D(vect[i], point))
+        if(vect[i].equal(point))
             return false;
     }
     vect.push_back(point);
@@ -181,7 +182,7 @@ void Manager::sortAndUniq(vector<Point> &vect)
     while(it > begin + 1)
     {
         //TODO: Should check if Z equals 0
-        if(Geometry::pointsEqual2D(*it, *(it-1)))
+        if(it->equal(*(it-1)))
             vect.erase(it);
         it--;
     }
