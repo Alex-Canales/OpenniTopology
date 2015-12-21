@@ -288,18 +288,6 @@ int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
 
         foundCentroids = quad.getClosestPointsSorted(coorTypeCentroid, range);
 
-        // //TODO: delete this:
-        // std::cout << "Number centroids found: " << foundCentroids.size() << std::endl;
-        // if(foundCentroids.size() > 0) {
-        //     std::cout << "Coordinate: (" << coorTypeCentroid.x << "; " << coorTypeCentroid.y << ")" << std::endl;
-        //     for(i=0; i < foundCentroids.size(); i++)
-        //     {
-        //         std::cout << "    (" << foundCentroids[i].x << "; " << foundCentroids[i].y << ")" << std::endl;
-        //     }
-        // }
-        // //End deletation to do
-
-
         // Should not occur
         if(foundCentroids.size() < numberAnalyzed)
             return -1;
@@ -330,9 +318,6 @@ float Geometry::getStartRange(unsigned int width, unsigned int height,
     //Average DISTance between points if it were fairly distributed
     float aDistX2 = pow(fW / fS, 2), aDistY2 = pow(fH / fS, 2);
     float aDistance = sqrt(aDistX2 + aDistY2);
-
-    // std::cout << "In  getStartRange:" << std::endl;
-    // std::cout << "width : " << width << "height : " << height << "pointCloudSize : " << pointCloudSize << std::endl;
 
     //If this is fairly distributed, each time the range should cath point in
     // a range of minNumberPoints
@@ -384,18 +369,6 @@ int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
         }
 
         foundCentroids = kdtree.nearestNeighbours(coorTypeCentroid, number);
-
-        // //TODO: delete this:
-        // std::cout << "Number centroids found: " << foundCentroids.size() << std::endl;
-        // if(foundCentroids.size() > 0) {
-        //     std::cout << "Coordinate: (" << coorTypeCentroid.x << "; " << coorTypeCentroid.y << ")" << std::endl;
-        //     for(i=0; i < foundCentroids.size(); i++)
-        //     {
-        //         std::cout << "    (" << foundCentroids[i].x << "; " << foundCentroids[i].y << ")" << std::endl;
-        //     }
-        // }
-        // //End deletion to do
-
 
         // Should not occur
         if(foundCentroids.size() < numberAnalyzed)

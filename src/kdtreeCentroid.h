@@ -23,10 +23,6 @@ class KdtreeCentroid
     void nearestNeighboursChildren(Centroid centroid,
             std::vector<Centroid> &results, unsigned int number);
 public:
-    // //TODO: delete that:
-    // static float maxInferior, maxSuperior, level;
-    // void checkBalance();  //TODO: delete
-
     KdtreeCentroid(Centroid centroid);
     KdtreeCentroid(Centroid centroid, bool splitX);
     ~KdtreeCentroid();
