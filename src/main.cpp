@@ -26,37 +26,40 @@ public:
     bool initialize();
     void mainLoop();
     void destroy();
-    Point origin;
+    Point sensorPosition;
 private:
     Device device;
     VideoStream depth;
     Displayer displayer;
-    vector<Point> points;
+
     bool drawFrame(VideoFrameRef frame);
 
-    bool savePointsToFiles(v_Point points, std::string namefile);
+    bool savePointsToFile(v_Point points, std::string namefile);
 
     //TODO: find a way to communicate with the tool
-    bool setPositionSensor();  //Returns false if problem
+    bool setSensorPosition();  //Returns false if problem
+    void printSensorPosition();
 
-    //Save points in the given vector
+    //Save points in the given vector, convert them from the sensor point of
+    // view to the machine point of view (by using the sensor position from
+    // the machine)
     void addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
             vector<Point> &vect);
 
     void sortAndUnique(vector<Point> &vect);
 
-    // Convert the sensor points (i.e. points with the sensor as a coordinate
-    // and the Z as depth) to machine points (i.e. points with the machine
-    // as coordinate and the Z as height)
-    v_Point getMachinePointsFromSensorPoints(v_Point sensorPoints);
-
     //printing
-    void printVectorPoints(vector<Point> &v);
     void printInstructions();
 };
 
-// Just set the origin, print nothing. Returns false if problem.
-bool Manager::setPositionSensor()
+void Manager::printSensorPosition()
+{
+    std::cout << "**** Current sensorPosition : (" << sensorPosition.x << "; ";
+    cout << sensorPosition.y << "; " << sensorPosition.z << ") ****" << endl;
+}
+
+// Just set the sensor position, print nothing. Returns false if problem.
+bool Manager::setSensorPosition()
 {
     float x, y, z;
     ifstream file("coordinates.txt");
@@ -67,15 +70,15 @@ bool Manager::setPositionSensor()
     file >> y;
     file >> z;
 
-    origin.x = x;
-    origin.y = y;
-    origin.z = z;
+    sensorPosition.x = x;
+    sensorPosition.y = y;
+    sensorPosition.z = z;
 
     file.close();
     return true;
 }
 
-bool Manager::savePointsToFiles(v_Point points, std::string fileName)
+bool Manager::savePointsToFile(v_Point points, std::string fileName)
 {
     std::ofstream file;
 
@@ -134,38 +137,14 @@ void Manager::sortAndUnique(vector<Point> &vect)
 
     while(it > begin + 1)
     {
-        //TODO: Should check if Z equals 0
         if(it->equal(*(it-1)))
             vect.erase(it);
         it--;
     }
 }
 
-// Don't include if z = 0
-v_Point Manager::getMachinePointsFromSensorPoints(v_Point sensorPoints)
-{
-    size_t i = 0;
-    v_Point machinePoints;
-
-    for(i=0; i < sensorPoints.size(); i++)
-    {
-        if(sensorPoints[i].z == 0)
-            continue;
-
-        machinePoints.push_back(
-            Point(
-                origin.x + sensorPoints[i].x,
-                origin.y + sensorPoints[i].y,
-                origin.z - sensorPoints[i].z
-            )
-        );
-    }
-
-    return machinePoints;
-}
-
 // Not added if the point has a depth equal to zero
-// Does not sort or check if points are unique
+// Sorts and checks if points are unique
 void Manager::addRealPoints(const VideoStream &depthStream,
         VideoFrameRef &frame, vector<Point>&vect)
 {
@@ -182,20 +161,27 @@ void Manager::addRealPoints(const VideoStream &depthStream,
             if(depth == 0)
                 continue;
 
+            // Get the point from the sensor point of view (z = depth)
             CoordinateConverter::convertDepthToWorld(depthStream, x, y, depth,
                     &point.x, &point.y, &point.z);
 
-            point.add(origin);
+            // Convert the point into machine point of view (z = height)
+            point.x = sensorPosition.x + point.x;
+            point.y = sensorPosition.y + point.y;
+            point.z = sensorPosition.z - point.z;
+
             vect.push_back(point);
         }
     }
+
+    sortAndUnique(vect);
 }
 
 Manager::Manager()
 {
-    origin.x = 0;
-    origin.y = 0;
-    origin.z = 0;
+    sensorPosition.x = 0;
+    sensorPosition.y = 0;
+    sensorPosition.z = 0;
 }
 
 bool Manager::initialize()
@@ -242,17 +228,15 @@ void Manager::mainLoop()
 {
     Status rc;
     VideoFrameRef frame;
-    bool toContinue(true), hasToSave(false), saveReference(true);
-    vector<Point> reference, topologyRef, topology;
+    bool toContinue(true);
+    vector<Point> topology, capturedPoints;
     SDL_Event event;
 
     clock_t c_start, c_end;
 
+    setSensorPosition();
 
     printInstructions();
-    setPositionSensor();
-    std::cout << "**** Current origin : (" << origin.x << "; ";
-    cout << origin.y << "; " << origin.z << ") ****" << endl;
 
     while(toContinue)
     {
@@ -295,119 +279,49 @@ void Manager::mainLoop()
                         toContinue = false;
                     else if(event.key.keysym.sym == SDLK_h)
                         printInstructions();
-                    else if(event.key.keysym.sym == SDLK_r)
+                    else if(event.key.keysym.sym == SDLK_c)
                     {
-                        hasToSave = true;
-                        saveReference = true;
+                        addRealPoints(depth, frame, capturedPoints);
                     }
-                    else if(event.key.keysym.sym == SDLK_e)
+                    else if(event.key.keysym.sym == SDLK_s)
                     {
-                        hasToSave = true;
-                        saveReference = false;
+                        savePointsToFile(capturedPoints, "topology.xyz");
                     }
-                    else if(event.key.keysym.sym == SDLK_t)
-                    {
-                        c_start = clock();
-                        // sortAndUnique(reference);
-                        // sortAndUnique(topologyRef);
-                        // std::cout << "Doing topology." << std::endl;
-                        // topology = Geometry::getTopology(reference, topologyRef);
-                        // std::cout << "Saving topology." << std::endl;
-                        // savePointsToFiles(topology, "topology.xyz");
-                        // std::cout << "Topology saved." << std::endl;
-
-                        std::cout << "Doing topology." << std::endl;
-                        topology = getMachinePointsFromSensorPoints(topologyRef);
-                        std::cout << "Saving topology." << std::endl;
-                        savePointsToFiles(topology, "topology.xyz");
-                        std::cout << "Topology saved." << std::endl;
-                        c_end = clock();
-
-                        cout << "Topology was done in ";
-                        cout << ((c_end - c_start) / CLOCKS_PER_SEC);
-                        cout << " seconds." << endl;
-                    }
-                    else if(event.key.keysym.sym == SDLK_o)
-                        printVectorPoints(reference);
                     else if(event.key.keysym.sym == SDLK_p)
-                        printVectorPoints(topologyRef);
-                    else if(event.key.keysym.sym == SDLK_l)
                     {
-                        sortAndUnique(reference);
-                        savePointsToFiles(reference, "reference.xyz");
-                    }
-                    else if(event.key.keysym.sym == SDLK_m)
-                    {
-                        sortAndUnique(topologyRef);
-                        savePointsToFiles(topologyRef, "topologyRef.xyz");
-                    }
-                    else if(event.key.keysym.sym == SDLK_g)
-                    {
-                        if(setPositionSensor())
-                        {
-                            cout << "New origin set" << endl;
-                        }
+                        if(setSensorPosition())
+                            cout << "New sensor position set" << endl;
                         else
-                        {
-                            cout << "Failed to set new origin" << endl;
-                        }
-                        cout << "Origin: " << "(" << origin.x << "; ";
-                        cout << origin.y << "; " << origin.z << ")"<< endl;
+                            cout << "Failed to set new sensor position" << endl;
+                        printSensorPosition();
                     }
                     break;
             }
         }
 
-        if(hasToSave)
-        {
-            std::cout << "Saving sample." << std::endl;
-            if(saveReference)
-                addRealPoints(depth, frame, reference);
-            else
-                addRealPoints(depth, frame, topologyRef);
-            std::cout << "Sample saved" << std::endl;
-        }
-
         drawFrame(frame);
-        hasToSave = false;
-    }
-}
-
-void Manager::printVectorPoints(vector<Point> &v)
-{
-    std::cout << "Printing points" << std::endl;
-    for(unsigned int i=0; i < v.size(); i++)
-    {
-        std::cout << "(" << v[i].x << "; " << v[i].y << "; ";
-        std::cout << v[i].z << ")" << std::endl;
     }
 }
 
 void Manager::printInstructions()
 {
     string msg;
-    msg = "\nThis software is used to scan an object.\n";
-    msg += "1) Take reference point (i.e. the table on which the object will ";
-    msg += " be.\n";
-    msg += "2) Take points of the object (which would be on the table).\n";
-    msg += "3) Make the topology.\n";
-    msg += "For setting the origin, modify the coordinates.txt\n";
+    msg = "\nThis software is used to scan an object using a 3D sensor.\n";
+    msg += "It captures the points and converts there positions to ";
+    msg += "the machine coordinate.\n";
+    msg += "For setting the sensor position, modify the file coordinates.txt\n";
     msg += "\tLine 1: x coordinate\n";
     msg += "\tLine 2: y coordinate\n";
     msg += "\tLine 3: z coordinate\n";
     msg += "Commands:\n";
-    msg += "\tr - Take reference points\n";
-    msg += "\te - Take topology reference points\n";
-    msg += "\tt - Make the topology\n";
-    msg += "\to - Print reference points\n";
-    msg += "\tp - Print topology reference points\n";
-    msg += "\tl - Save in file sorted and unique reference points\n";
-    msg += "\tm - Save in file sorted and unique topology reference points\n";
-    msg += "\tg - Set the origin\n";
-    msg += "\th - Print instructions\n";
+    msg += "\tc - [C]apture points\n";
+    msg += "\ts - [S]ave points\n";
+    msg += "\tp - Set the sensor [p]osition\n";
+    msg += "\th - Print these instructions\n";
     msg += "\tEsc - Quit\n\n";
 
     std::cout << msg << std::endl;
+    printSensorPosition();
 }
 
 void Manager::destroy()
