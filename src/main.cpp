@@ -33,19 +33,22 @@ private:
     Displayer displayer;
     vector<Point> points;
     bool drawFrame(VideoFrameRef frame);
-    bool saveRealPointsToFiles(const VideoStream &depthStream,
-            VideoFrameRef frame);
+
     bool savePointsToFiles(v_Point points, std::string namefile);
 
     //TODO: find a way to communicate with the tool
-    bool setOriginFromMachine();  //Returns false if problem
+    bool setPositionSensor();  //Returns false if problem
 
     //Save points in the given vector
     void addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
             vector<Point> &vect);
-    bool addPointUnique(vector<Point> &vect, Point point);  //True if added
 
     void sortAndUnique(vector<Point> &vect);
+
+    // Convert the sensor points (i.e. points with the sensor as a coordinate
+    // and the Z as depth) to machine points (i.e. points with the machine
+    // as coordinate and the Z as height)
+    v_Point getMachinePointsFromSensorPoints(v_Point sensorPoints);
 
     //printing
     void printVectorPoints(vector<Point> &v);
@@ -53,7 +56,7 @@ private:
 };
 
 // Just set the origin, print nothing. Returns false if problem.
-bool Manager::setOriginFromMachine()
+bool Manager::setPositionSensor()
 {
     float x, y, z;
     ifstream file("coordinates.txt");
@@ -83,39 +86,6 @@ bool Manager::savePointsToFiles(v_Point points, std::string fileName)
     for(unsigned int i=0; i < points.size(); i++)
     {
         file << points[i].x << " " << points[i].y << " " << points[i].z << "\n";
-    }
-
-    file.close();
-    return true;
-}
-
-bool Manager::saveRealPointsToFiles(const VideoStream &depthStream,
-            VideoFrameRef frame)
-{
-    std::string fileName("points.xyz");
-    float worX = 0, worY = 0, worZ = 0;  //world point (the point in real world)
-    int depX = 0, depY = 0;
-    DepthPixel depZ = 0;  //depth point (the point on screen)
-    std::ofstream file;
-
-    file.open(fileName.c_str());
-    if(!file.is_open())
-        return false;
-
-    DepthPixel* pDepth = (DepthPixel*)frame.getData();
-    int width = frame.getWidth(), height = frame.getHeight();
-
-    for(depY=0; depY < height; depY++)
-    {
-        for(depX=0; depX < width; depX++)
-        {
-            depZ = pDepth[depY * width + depX];
-
-            CoordinateConverter::convertDepthToWorld(depthStream,
-                    depX, depY, depZ, &worX, &worY, &worZ);
-
-            file << worX << " " << worY << " " << worZ << "\n";
-        }
     }
 
     file.close();
@@ -155,25 +125,9 @@ bool Manager::drawFrame(VideoFrameRef frame)
     return true;
 }
 
-
-bool Manager::addPointUnique(vector<Point> &vect, Point point)
-{
-    //NOTE: this is a quick and dirty solution. We could considerate of sorting
-    // the points (according to x for example) before doing that.
-    for(unsigned int i=0; i < vect.size(); i++)
-    {
-        if(vect[i].equal(point))
-            return false;
-    }
-    vect.push_back(point);
-    return true;
-}
-
 void Manager::sortAndUnique(vector<Point> &vect)
 {
     std::sort(vect.begin(), vect.end(), Geometry::compare);
-    // std::sort(vect.begin(), vect.end(), Geometry::xCompare);
-    // std::stable_sort(vect.begin(), vect.end(), Geometry::xyCompare);
 
     std::vector<Point>::iterator it = vect.end();
     std::vector<Point>::iterator begin = vect.begin();
@@ -187,8 +141,31 @@ void Manager::sortAndUnique(vector<Point> &vect)
     }
 }
 
+// Don't include if z = 0
+v_Point Manager::getMachinePointsFromSensorPoints(v_Point sensorPoints)
+{
+    size_t i = 0;
+    v_Point machinePoints;
+
+    for(i=0; i < sensorPoints.size(); i++)
+    {
+        if(sensorPoints[i].z == 0)
+            continue;
+
+        machinePoints.push_back(
+            Point(
+                origin.x + sensorPoints[i].x,
+                origin.y + sensorPoints[i].y,
+                origin.z - sensorPoints[i].z
+            )
+        );
+    }
+
+    return machinePoints;
+}
+
 // Not added if the point has a depth equal to zero
-// Does not sort or check if points are uniq
+// Does not sort or check if points are unique
 void Manager::addRealPoints(const VideoStream &depthStream,
         VideoFrameRef &frame, vector<Point>&vect)
 {
@@ -273,7 +250,7 @@ void Manager::mainLoop()
 
 
     printInstructions();
-    setOriginFromMachine();
+    setPositionSensor();
     std::cout << "**** Current origin : (" << origin.x << "; ";
     cout << origin.y << "; " << origin.z << ") ****" << endl;
 
@@ -331,10 +308,16 @@ void Manager::mainLoop()
                     else if(event.key.keysym.sym == SDLK_t)
                     {
                         c_start = clock();
-                        sortAndUnique(reference);
-                        sortAndUnique(topologyRef);
+                        // sortAndUnique(reference);
+                        // sortAndUnique(topologyRef);
+                        // std::cout << "Doing topology." << std::endl;
+                        // topology = Geometry::getTopology(reference, topologyRef);
+                        // std::cout << "Saving topology." << std::endl;
+                        // savePointsToFiles(topology, "topology.xyz");
+                        // std::cout << "Topology saved." << std::endl;
+
                         std::cout << "Doing topology." << std::endl;
-                        topology = Geometry::getTopology(reference, topologyRef);
+                        topology = getMachinePointsFromSensorPoints(topologyRef);
                         std::cout << "Saving topology." << std::endl;
                         savePointsToFiles(topology, "topology.xyz");
                         std::cout << "Topology saved." << std::endl;
@@ -360,7 +343,7 @@ void Manager::mainLoop()
                     }
                     else if(event.key.keysym.sym == SDLK_g)
                     {
-                        if(setOriginFromMachine())
+                        if(setPositionSensor())
                         {
                             cout << "New origin set" << endl;
                         }
@@ -388,7 +371,6 @@ void Manager::mainLoop()
         drawFrame(frame);
         hasToSave = false;
     }
-    // saveRealPointsToFiles(depth, frame);
 }
 
 void Manager::printVectorPoints(vector<Point> &v)

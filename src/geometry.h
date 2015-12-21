@@ -15,11 +15,7 @@ public:
     static float pointsEqual3D(Point a, Point b);
     static float dotProduct2D(Point v1, Point v2);
 
-    //Compare if a.x < b.x, useful for sorting
-    static bool xCompare(Point a, Point b);
-    //Compare if a.x < b.x && a.y < b.y, useful for sorting (after xCompare and
-    // using a stable sort)
-    static bool xyCompare(Point a, Point b);
+    //If a.x < b.x , if equal: if a.y < b.y. Used for sort
     static bool compare(Point a, Point b);
 
     //Points have to be unique

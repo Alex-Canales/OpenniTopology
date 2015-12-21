@@ -22,11 +22,6 @@ float Geometry::dotProduct2D(Point v1, Point v2)
     return v1.x * v2.x + v1.y * v2.y;
 }
 
-bool Geometry::xCompare(Point a, Point b)
-{
-    return a.x < b.x;
-}
-
 bool Geometry::compare(Point a, Point b)
 {
     if(a.x < b.x)
