@@ -1,7 +1,7 @@
 # Topology-Taker
 
-Take a sample as a reference then scan the object. Make a topology relatively to
-the reference sample.
+Scan an object to make its topology. The device should be on the tool, the
+topology should be according to the machine point of view.
 
 Uses the [Delaunay library](https://github.com/eloraiby/delaunay), see the
 license there.
