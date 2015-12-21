@@ -11,8 +11,6 @@
 class Geometry
 {
 public:
-    static float pointsEqual2D(Point a, Point b);
-    static float pointsEqual3D(Point a, Point b);
     static float dotProduct2D(Point v1, Point v2);
 
     //If a.x < b.x , if equal: if a.y < b.y. Used for sort
@@ -36,17 +34,6 @@ public:
 
     static bool getHeight(v_TriangleV &triangles, const v_Point &points,
             Point coordinate, float *height);
-
-
-    static float getStartRange(unsigned int width, unsigned int height,
-        unsigned int pointCloudSize);
-
-    static int findTriangle(v_TriangleV &triangles, const v_Point &points,
-        Point &coordinate, QuadtreeCentroid &quad, float startRange,
-        float *coeffAB, float *coeffAC);
-
-    static bool getHeight(v_TriangleV &triangles, const v_Point &points,
-            Point &coordinate, float *height, QuadtreeCentroid &quad);
 
     static int findTriangle(v_TriangleV &triangles, const v_Point &points,
         Point &coordinate, KdtreeCentroid &kdtree, unsigned int numberStart,

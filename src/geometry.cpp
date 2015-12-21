@@ -3,19 +3,8 @@
 
 #include "top_types.h"
 #include "delaunay.h"
-#include "quadtreeCentroid.h"
 #include "kdtreeCentroid.h"
 #include "geometry.h"
-
-float Geometry::pointsEqual2D(Point a, Point b)
-{
-    return (a.x == b.x && a.y == b.y);
-}
-
-float Geometry::pointsEqual3D(Point a, Point b)
-{
-    return (a.x == b.x && a.y == b.y && a.z == b.z);
-}
 
 float Geometry::dotProduct2D(Point v1, Point v2)
 {
@@ -63,32 +52,6 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
     }
     // End with kdtree
 
-    // // Begin with quadtree
-    // std::cout << "Pushing centroids in quadtree" << std::endl;
-    // float minX = 0, minY = 0, maxX = 0, maxY = 0;
-    // std::cout << "Number centroids: " << centroids.size() << std::endl;
-    // for(i=0; i < centroids.size(); i++)
-    // {
-    //     // std::cout << "(" << centroids[i].x << "; " << centroids[i].y << ")" << std::endl;
-    //     if(centroids[i].x < minX)
-    //         minX = centroids[i].x;
-    //     if(centroids[i].y < minY)
-    //         minY = centroids[i].y;
-    //     if(centroids[i].x > maxX)
-    //         maxX = centroids[i].x;
-    //     if(centroids[i].y > maxY)
-    //         maxY = centroids[i].y;
-    // }
-    // std::cout << " Min:" << "(" << minX << "; " << minY << ")" << " Max: " "(" << maxX << "; " << maxY << ")" << std::endl;
-    // QuadtreeCentroid quad(minX, minY, maxX - minX, maxY - minY);
-    // for(i=0; i < centroids.size(); i++)
-    // {
-    //     quad.insert(centroids[i]);
-    // }
-    // std::cout << "Done" << std::endl;
-    // std::cout << "quad.x " << quad.getX() << ", quad.y " << quad.getY() << ", quad.width " << quad.getWidth() << ", quad.height " << quad.getHeight() << std::endl;
-    // // End with quadtree
-
     std::cout << "Calculating the height and adding." << std::endl;
     for(i = 0; i < topologyRef.size(); i++)
     {
@@ -100,8 +63,6 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
             std::cout << " \% calcultated" << std::endl;
         }
 
-        // if(getHeight(triangles, reference, topologyRef[i], &height))
-        // if(getHeight(triangles, reference, topologyRef[i], &height, quad))
         if(getHeight(triangles, reference, topologyRef[i], &height, kdtree))
         {
             topology.push_back(topologyRef[i]);
@@ -115,6 +76,7 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
 
     // Using the regular method to find triangle for each points:
     // around 2min30 for parsing 70142 point to 151826 triangles
+    // Using a K-D tree: less than 30 seconds
     return topology;
 }
 
@@ -198,10 +160,6 @@ bool Geometry::pointInTriangle(Triangle_vertices triangle,
     *coeffAC = (dotABAB * dotACAP - dotACAB * dotABAP) * invDenominator;
     *coeffAB = (dotACAC * dotABAP - dotACAB * dotACAP) * invDenominator;
 
-    // if(*coeffAC < 0 || *coeffAB < 0 || (*coeffAC + *coeffAB > 1))
-    //     return false;
-    //
-    // return true;
     return (*coeffAC >= 0 && *coeffAB >= 0 && (*coeffAC + *coeffAB <= 1));
 }
 
@@ -259,88 +217,6 @@ bool Geometry::getHeight(v_TriangleV &triangles, const v_Point &points,
 }
 
 int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
-    Point &coordinate, QuadtreeCentroid &quad, float startRange, float *coeffAB,
-    float *coeffAC)
-{
-    v_TriangleV foundTriangles;
-    std::vector<Centroid> foundCentroids;
-    float range = startRange;
-    size_t numberAnalyzed = 0, i = 0, iTri = 0;
-    int numberTries = 3;
-    Centroid coorTypeCentroid;
-    coorTypeCentroid.x = coordinate.x;
-    coorTypeCentroid.y = coordinate.y;
-
-    do
-    {
-        //If failling too much, it is better to do the regular method
-        if(numberTries <= 0)
-        {
-            // std::cout << "Failed to find, have to use regular for " << startRange << std::endl;
-            return Geometry::findTriangle(triangles, points, coordinate,
-                    coeffAB, coeffAC);
-        }
-
-        foundCentroids = quad.getClosestPointsSorted(coorTypeCentroid, range);
-
-        // Should not occur
-        if(foundCentroids.size() < numberAnalyzed)
-            return -1;
-
-        for(i=numberAnalyzed; i < foundCentroids.size(); i++)
-        {
-            iTri = foundCentroids[i].index;
-            if(Geometry::pointInTriangle(triangles[iTri], points, coordinate,
-                        coeffAB, coeffAC))
-                return iTri;
-        }
-
-        numberAnalyzed = i;
-        range *= 2;
-        numberTries--;
-    } while(triangles.size() > foundCentroids.size());
-
-    return -1;
-}
-
-float Geometry::getStartRange(unsigned int width, unsigned int height,
-        unsigned int pointCloudSize)
-{
-    float minNumberPoints = 10;
-    float fW = static_cast<float>(width), fH = static_cast<float>(height);
-    float fS = static_cast<float>(pointCloudSize - 1);
-
-    //Average DISTance between points if it were fairly distributed
-    float aDistX2 = pow(fW / fS, 2), aDistY2 = pow(fH / fS, 2);
-    float aDistance = sqrt(aDistX2 + aDistY2);
-
-    //If this is fairly distributed, each time the range should cath point in
-    // a range of minNumberPoints
-    return aDistance * minNumberPoints;
-}
-
-bool Geometry::getHeight(v_TriangleV &triangles, const v_Point &points,
-            Point &coordinate, float *height, QuadtreeCentroid &quad)
-{
-    float coeffAB = 0, coeffAC = 0;
-    float range = getStartRange(quad.getWidth(), quad.getHeight(),
-            quad.getNumberMembers());
-    int index = findTriangle(triangles, points, coordinate, quad, range,
-            &coeffAB, &coeffAC);
-    if (index == -1)
-        return false;
-
-    // std::cout << "Coordinate: (" << coordinate.x << "; " << coordinate.y << ")" << std::endl;
-
-    Point a = points[triangles[index].a];
-    Point b = points[triangles[index].b];
-    Point c = points[triangles[index].c];
-    *height = a.z + coeffAB * (b.z - a.z) + coeffAC * (c.z - a.z);
-
-    return true;
-}
-
-int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
     Point &coordinate, KdtreeCentroid &kdtree, unsigned int numberStart,
     float *coeffAB, float *coeffAC)
 {
@@ -358,7 +234,6 @@ int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
         //If failling too much, it is better to do the regular method
         if(numberTries <= 0)
         {
-            // std::cout << "Failed to find, have to use regular for " << numberStart << std::endl;
             return Geometry::findTriangle(triangles, points, coordinate,
                     coeffAB, coeffAC);
         }
@@ -394,8 +269,6 @@ bool Geometry::getHeight(v_TriangleV &triangles, const v_Point &points,
             &coeffAB, &coeffAC);
     if (index == -1)
         return false;
-
-    // std::cout << "Coordinate: (" << coordinate.x << "; " << coordinate.y << ")" << std::endl;
 
     Point a = points[triangles[index].a];
     Point b = points[triangles[index].b];
