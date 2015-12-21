@@ -26,5 +26,5 @@ find_path(OPENNI2_INCLUDE_DIR OpenNI.h
           PATH_SUFFIXES openni2 ni2
 )
 
-add_executable(topologyTaker main.cpp displayer.cpp delaunay.c geometry.cpp quadtreeCentroid.cpp kdtreeCentroid.cpp)
+add_executable(topologyTaker main.cpp displayer.cpp delaunay.c geometry.cpp kdtreeCentroid.cpp)
 target_link_libraries(topologyTaker ${SDL_LIBRARY} ${OPENNI2_LIBRARY})

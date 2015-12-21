@@ -1,4 +1,5 @@
 #include <iostream>
+#include <algorithm>
 #include <cstdlib>
 
 #include "top_types.h"
@@ -16,6 +17,21 @@ bool Geometry::compare(Point a, Point b)
     if(a.x < b.x)
        return true;
     return (a.x == b.x && a.y < b.y);
+}
+
+void Geometry::sortAndUnique(v_Point &vect)
+{
+    std::sort(vect.begin(), vect.end(), Geometry::compare);
+
+    std::vector<Point>::iterator it = vect.end();
+    std::vector<Point>::iterator begin = vect.begin();
+
+    while(it > begin + 1)
+    {
+        if(it->equal(*(it-1)))
+            vect.erase(it);
+        it--;
+    }
 }
 
 v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)

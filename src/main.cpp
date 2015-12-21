@@ -1,5 +1,4 @@
 #include <iostream>
-#include <algorithm>
 #include <ctime>
 #include <fstream>
 #include <string>
@@ -45,8 +44,6 @@ private:
     // the machine)
     void addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
             vector<Point> &vect);
-
-    void sortAndUnique(vector<Point> &vect);
 
     //printing
     void printInstructions();
@@ -128,21 +125,6 @@ bool Manager::drawFrame(VideoFrameRef frame)
     return true;
 }
 
-void Manager::sortAndUnique(vector<Point> &vect)
-{
-    std::sort(vect.begin(), vect.end(), Geometry::compare);
-
-    std::vector<Point>::iterator it = vect.end();
-    std::vector<Point>::iterator begin = vect.begin();
-
-    while(it > begin + 1)
-    {
-        if(it->equal(*(it-1)))
-            vect.erase(it);
-        it--;
-    }
-}
-
 // Not added if the point has a depth equal to zero
 // Sorts and checks if points are unique
 void Manager::addRealPoints(const VideoStream &depthStream,
@@ -174,7 +156,7 @@ void Manager::addRealPoints(const VideoStream &depthStream,
         }
     }
 
-    sortAndUnique(vect);
+    Geometry::sortAndUnique(vect);
 }
 
 Manager::Manager()
@@ -242,6 +224,10 @@ void Manager::mainLoop()
     {
         int changedStreamDummy;
         VideoStream* pStream = &depth;
+
+        if(pStream->getMirroringEnabled())
+            pStream->setMirroringEnabled(false);
+
         rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy,
                 SAMPLE_READ_WAIT_TIMEOUT);
         if(rc != STATUS_OK)
@@ -282,10 +268,12 @@ void Manager::mainLoop()
                     else if(event.key.keysym.sym == SDLK_c)
                     {
                         addRealPoints(depth, frame, capturedPoints);
+                        cout << "Point added" << endl;
                     }
                     else if(event.key.keysym.sym == SDLK_s)
                     {
                         savePointsToFile(capturedPoints, "topology.xyz");
+                        cout << "Topology saved in topology.xyz" << endl;
                     }
                     else if(event.key.keysym.sym == SDLK_p)
                     {

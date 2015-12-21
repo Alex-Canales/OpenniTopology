@@ -5,7 +5,6 @@
 #include <cmath>
 
 #include "top_types.h"
-#include "quadtreeCentroid.h"
 #include "kdtreeCentroid.h"
 
 class Geometry
@@ -15,6 +14,7 @@ public:
 
     //If a.x < b.x , if equal: if a.y < b.y. Used for sort
     static bool compare(Point a, Point b);
+    static void sortAndUnique(v_Point &vect);
 
     //Points have to be unique
     static v_Point getTopology(v_Point reference, v_Point topologyRef);
