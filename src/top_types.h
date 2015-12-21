@@ -23,6 +23,14 @@ public:
         return (*this);
     }
 
+    Point& add(float x, float y, float z)
+    {
+        x += x;
+        y += y;
+        z += z;
+        return (*this);
+    }
+
     Point& substract(Point point)
     {
         x -= point.x;
@@ -31,9 +39,22 @@ public:
         return (*this);
     }
 
+    Point& substract(float x, float y, float z)
+    {
+        x -= x;
+        y -= y;
+        z -= z;
+        return (*this);
+    }
+
     bool equal(Point p)
     {
         return (x == p.x && y == p.y && z == p.z);
+    }
+
+    bool equal(float x, float y, float z)
+    {
+        return (x == this->x && y == this->y && z == this->z);
     }
 
     //If considered as a vector:

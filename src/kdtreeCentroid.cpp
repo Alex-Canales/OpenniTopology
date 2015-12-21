@@ -4,6 +4,10 @@
 #include "kdtreeCentroid.h"
 #include "geometry.h"
 
+// //TODO: delete that:
+// float KdtreeCentroid::maxInferior = 0;
+// float KdtreeCentroid::maxSuperior = 0;
+// float KdtreeCentroid::level = 0;
 
 bool KdtreeCentroid::isNode()
 {
@@ -198,26 +202,53 @@ void KdtreeCentroid::nearestNeighboursChildren(Centroid centroid,
     }
 
     if((*inside) != NULL)
-    {
         (*inside)->nearestNeighboursChildren(centroid, results, number);
-    }
 
     Centroid &c = results[results.size() - 1];
     float d = pow(c.x - centroid.x, 2) + pow(c.y - centroid.y, 2);
 
     // If in the other side can but inserted closer points
     if((*outside) != NULL && d >= distanceSplit2)
-    {
         (*outside)->nearestNeighboursChildren(centroid, results, number);
-    }
 
 }
 
 std::vector<Centroid> KdtreeCentroid::nearestNeighbours(Centroid centroid,
             unsigned int number)
 {
+    // //TODO: delete
+    // maxInferior = 0;
+    // maxSuperior = 0;
+    // level = 0;
+
     std::vector<Centroid> results;
     if(number > 0)
         nearestNeighboursChildren(centroid, results, number);
+
+    // checkBalance();
+    // std::cout << "maxInferior = " << maxInferior << std::endl;
+    // std::cout << "maxSuperior = " << maxSuperior << std::endl;
+
     return results;
 }
+
+// void KdtreeCentroid::checkBalance()
+// {
+//     float currentLevel = level;
+//     level++;
+//
+//     if(inferior)
+//     {
+//         inferior->checkBalance();
+//         if(level > maxInferior)
+//             maxInferior = level;
+//         level = currentLevel;
+//     }
+//     if(superior)
+//     {
+//         superior->checkBalance();
+//         if(level > maxSuperior)
+//             maxSuperior = level;
+//         level = currentLevel;
+//     }
+// }

@@ -59,14 +59,16 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
 
     v_Centroid centroids = getCentroids(triangles, reference);
 
+    // Begin with kdtree
     std::cout << "Pushing centroids in kdtree" << std::endl;
     KdtreeCentroid kdtree(centroids[0]);
-
     for(i=0; i < centroids.size(); i++)
     {
         kdtree.insert(centroids[i]);
     }
+    // End with kdtree
 
+    // // Begin with quadtree
     // std::cout << "Pushing centroids in quadtree" << std::endl;
     // float minX = 0, minY = 0, maxX = 0, maxY = 0;
     // std::cout << "Number centroids: " << centroids.size() << std::endl;
@@ -90,6 +92,7 @@ v_Point Geometry::getTopology(v_Point reference, v_Point topologyRef)
     // }
     // std::cout << "Done" << std::endl;
     // std::cout << "quad.x " << quad.getX() << ", quad.y " << quad.getY() << ", quad.width " << quad.getWidth() << ", quad.height " << quad.getHeight() << std::endl;
+    // // End with quadtree
 
     std::cout << "Calculating the height and adding." << std::endl;
     for(i = 0; i < topologyRef.size(); i++)
@@ -278,23 +281,23 @@ int Geometry::findTriangle(v_TriangleV &triangles, const v_Point &points,
         //If failling too much, it is better to do the regular method
         if(numberTries <= 0)
         {
-            std::cout << "Failed to find, have to use regular for " << startRange << std::endl;
+            // std::cout << "Failed to find, have to use regular for " << startRange << std::endl;
             return Geometry::findTriangle(triangles, points, coordinate,
                     coeffAB, coeffAC);
         }
 
         foundCentroids = quad.getClosestPointsSorted(coorTypeCentroid, range);
 
-        //TODO: delete this:
-        std::cout << "Number centroids found: " << foundCentroids.size() << std::endl;
-        if(foundCentroids.size() > 0) {
-            std::cout << "Coordinate: (" << coorTypeCentroid.x << "; " << coorTypeCentroid.y << ")" << std::endl;
-            for(i=0; i < foundCentroids.size(); i++)
-            {
-                std::cout << "    (" << foundCentroids[i].x << "; " << foundCentroids[i].y << ")" << std::endl;
-            }
-        }
-        //End deletation to do
+        // //TODO: delete this:
+        // std::cout << "Number centroids found: " << foundCentroids.size() << std::endl;
+        // if(foundCentroids.size() > 0) {
+        //     std::cout << "Coordinate: (" << coorTypeCentroid.x << "; " << coorTypeCentroid.y << ")" << std::endl;
+        //     for(i=0; i < foundCentroids.size(); i++)
+        //     {
+        //         std::cout << "    (" << foundCentroids[i].x << "; " << foundCentroids[i].y << ")" << std::endl;
+        //     }
+        // }
+        // //End deletation to do
 
 
         // Should not occur
@@ -347,7 +350,7 @@ bool Geometry::getHeight(v_TriangleV &triangles, const v_Point &points,
     if (index == -1)
         return false;
 
-    std::cout << "Coordinate: (" << coordinate.x << "; " << coordinate.y << ")" << std::endl;
+    // std::cout << "Coordinate: (" << coordinate.x << "; " << coordinate.y << ")" << std::endl;
 
     Point a = points[triangles[index].a];
     Point b = points[triangles[index].b];

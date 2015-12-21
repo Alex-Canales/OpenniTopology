@@ -1,5 +1,6 @@
 #include <iostream>
 #include <algorithm>
+#include <ctime>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -40,17 +41,18 @@ private:
     bool setOriginFromMachine();  //Returns false if problem
 
     //Save points in the given vector
-    bool addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
+    void addRealPoints(const VideoStream &depthStream, VideoFrameRef &frame,
             vector<Point> &vect);
-    bool addPointUniq(vector<Point> &vect, Point point);  //True if added
+    bool addPointUnique(vector<Point> &vect, Point point);  //True if added
 
-    void sortAndUniq(vector<Point> &vect);
+    void sortAndUnique(vector<Point> &vect);
 
     //printing
     void printVectorPoints(vector<Point> &v);
     void printInstructions();
 };
 
+// Just set the origin, print nothing. Returns false if problem.
 bool Manager::setOriginFromMachine()
 {
     float x, y, z;
@@ -65,9 +67,6 @@ bool Manager::setOriginFromMachine()
     origin.x = x;
     origin.y = y;
     origin.z = z;
-
-    std::cout << "(" << origin.x << "; " << origin.y << "; " <<
-        origin.z << ")" << std::endl;
 
     file.close();
     return true;
@@ -157,7 +156,7 @@ bool Manager::drawFrame(VideoFrameRef frame)
 }
 
 
-bool Manager::addPointUniq(vector<Point> &vect, Point point)
+bool Manager::addPointUnique(vector<Point> &vect, Point point)
 {
     //NOTE: this is a quick and dirty solution. We could considerate of sorting
     // the points (according to x for example) before doing that.
@@ -170,7 +169,7 @@ bool Manager::addPointUniq(vector<Point> &vect, Point point)
     return true;
 }
 
-void Manager::sortAndUniq(vector<Point> &vect)
+void Manager::sortAndUnique(vector<Point> &vect)
 {
     std::sort(vect.begin(), vect.end(), Geometry::compare);
     // std::sort(vect.begin(), vect.end(), Geometry::xCompare);
@@ -188,7 +187,9 @@ void Manager::sortAndUniq(vector<Point> &vect)
     }
 }
 
-bool Manager::addRealPoints(const VideoStream &depthStream,
+// Not added if the point has a depth equal to zero
+// Does not sort or check if points are uniq
+void Manager::addRealPoints(const VideoStream &depthStream,
         VideoFrameRef &frame, vector<Point>&vect)
 {
     DepthPixel* pDepth = (DepthPixel*)frame.getData();
@@ -201,22 +202,16 @@ bool Manager::addRealPoints(const VideoStream &depthStream,
         for(x=0; x < width; x++)
         {
             depth = pDepth[y * width + x];
+            if(depth == 0)
+                continue;
 
             CoordinateConverter::convertDepthToWorld(depthStream, x, y, depth,
                     &point.x, &point.y, &point.z);
 
-            if(point.x == 0 && point.y == 0 && point.z == 0)
-                continue;
-
-            point.x += origin.x;
-            point.y += origin.y;
-            point.z += origin.z;
-
+            point.add(origin);
             vect.push_back(point);
         }
     }
-
-    return true;
 }
 
 Manager::Manager()
@@ -274,7 +269,13 @@ void Manager::mainLoop()
     vector<Point> reference, topologyRef, topology;
     SDL_Event event;
 
+    clock_t c_start, c_end;
+
+
     printInstructions();
+    setOriginFromMachine();
+    std::cout << "**** Current origin : (" << origin.x << "; ";
+    cout << origin.y << "; " << origin.z << ") ****" << endl;
 
     while(toContinue)
     {
@@ -329,13 +330,19 @@ void Manager::mainLoop()
                     }
                     else if(event.key.keysym.sym == SDLK_t)
                     {
-                        sortAndUniq(reference);
-                        sortAndUniq(topologyRef);
+                        c_start = clock();
+                        sortAndUnique(reference);
+                        sortAndUnique(topologyRef);
                         std::cout << "Doing topology." << std::endl;
                         topology = Geometry::getTopology(reference, topologyRef);
                         std::cout << "Saving topology." << std::endl;
                         savePointsToFiles(topology, "topology.xyz");
                         std::cout << "Topology saved." << std::endl;
+                        c_end = clock();
+
+                        cout << "Topology was done in ";
+                        cout << ((c_end - c_start) / CLOCKS_PER_SEC);
+                        cout << " seconds." << endl;
                     }
                     else if(event.key.keysym.sym == SDLK_o)
                         printVectorPoints(reference);
@@ -343,17 +350,26 @@ void Manager::mainLoop()
                         printVectorPoints(topologyRef);
                     else if(event.key.keysym.sym == SDLK_l)
                     {
-                        sortAndUniq(reference);
+                        sortAndUnique(reference);
                         savePointsToFiles(reference, "reference.xyz");
                     }
                     else if(event.key.keysym.sym == SDLK_m)
                     {
-                        sortAndUniq(topologyRef);
+                        sortAndUnique(topologyRef);
                         savePointsToFiles(topologyRef, "topologyRef.xyz");
                     }
                     else if(event.key.keysym.sym == SDLK_g)
                     {
-                        setOriginFromMachine();
+                        if(setOriginFromMachine())
+                        {
+                            cout << "New origin set" << endl;
+                        }
+                        else
+                        {
+                            cout << "Failed to set new origin" << endl;
+                        }
+                        cout << "Origin: " << "(" << origin.x << "; ";
+                        cout << origin.y << "; " << origin.z << ")"<< endl;
                     }
                     break;
             }
@@ -372,7 +388,7 @@ void Manager::mainLoop()
         drawFrame(frame);
         hasToSave = false;
     }
-    saveRealPointsToFiles(depth, frame);
+    // saveRealPointsToFiles(depth, frame);
 }
 
 void Manager::printVectorPoints(vector<Point> &v)
