@@ -4,6 +4,11 @@
 
 #include "dashboard.h"
 
+std::string Dashboard::baseURL = "";
+CURL* Dashboard::curl = NULL;
+curl_slist* Dashboard::headers = NULL;
+void(* Dashboard::callback)(bool, float, float, float);
+
 void Dashboard::initialize(std::string baseURL,
         void (*callbackGetPosition)(bool, float, float, float))
 {
@@ -49,7 +54,7 @@ size_t Dashboard::dataParser(char* buf, size_t size, size_t nmemb, void* up)
     if(callback == NULL)
         return 0;
 
-    for(int c = 0; c < size*nmemb; c++)
+    for(size_t c = 0; c < size*nmemb; c++)
     {
         data.push_back(buf[c]);
     }

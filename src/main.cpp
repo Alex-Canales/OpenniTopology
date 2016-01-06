@@ -9,6 +9,7 @@
 #include "top_types.h"
 #include "displayer.h"
 #include "geometry.h"
+#include "dashboard.h"
 
 #define SAMPLE_READ_WAIT_TIMEOUT 2000 //2000ms
 
@@ -25,19 +26,31 @@ public:
     bool initialize();
     void mainLoop();
     void destroy();
-    Point sensorPosition;
-private:
+    static Point sensorPosition;
+    Point distanceBitSensor;
+    static bool sensorSetted;  //Changing the name? More "callbackCalled"
+// private:
     Device device;
     VideoStream depth;
     Displayer displayer;
+
+    std::string url;  //TODO: get the URL
 
     bool drawFrame(VideoFrameRef frame);
 
     bool savePointsToFile(v_Point points, std::string namefile);
 
-    //TODO: find a way to communicate with the tool
     bool setSensorPosition();  //Returns false if problem
     void printSensorPosition();
+
+    //Network communication:
+    void initialiseDashboard();
+    // Gives order to the machine to move the sensor
+    bool moveSensorTo(float x, float y, float z);
+    // Callback function when asking bit position
+    static void getSensorPositionCb(bool result, float x, float y, float z);
+    // Asks sensor position to the machine
+    static bool getSensorPosition();
 
     //Save points in the given vector, convert them from the sensor point of
     // view to the machine point of view (by using the sensor position from
@@ -49,13 +62,16 @@ private:
     void printInstructions();
 };
 
+Point Manager::sensorPosition;
+bool Manager::sensorSetted = false;
+
 void Manager::printSensorPosition()
 {
     std::cout << "**** Current sensorPosition : (" << sensorPosition.x << "; ";
     cout << sensorPosition.y << "; " << sensorPosition.z << ") ****" << endl;
 }
 
-// Just set the sensor position, print nothing. Returns false if problem.
+// Just set the sensor position from file, print nothing. Returns false if problem.
 bool Manager::setSensorPosition()
 {
     float x, y, z;
@@ -72,6 +88,42 @@ bool Manager::setSensorPosition()
     sensorPosition.z = z;
 
     file.close();
+    return true;
+}
+
+void Manager::initialiseDashboard()
+{
+    Dashboard::initialize(url, &(Manager::getSensorPositionCb));
+}
+
+bool Manager::moveSensorTo(float x, float y, float z)
+{
+    return Dashboard::setPosition(x, y, z);
+}
+
+//Set sensor position (this function is used as callback for dashboard)
+void Manager::getSensorPositionCb(bool result, float x, float y, float z)
+{
+    sensorSetted = true;
+
+    if(!result)
+        return;
+
+    sensorPosition.x = x;
+    sensorPosition.y = y;
+    sensorPosition.z = z;
+}
+
+bool Manager::getSensorPosition()
+{
+    if(!Dashboard::getPosition())
+        return false;
+    sensorSetted = false;
+
+    while(!sensorSetted);
+
+    //TODO: have if problem (if result of callback is false)
+
     return true;
 }
 
@@ -203,6 +255,8 @@ bool Manager::initialize()
         return false;
     }
 
+    initialiseDashboard();
+
     return true;
 }
 
@@ -283,6 +337,12 @@ void Manager::mainLoop()
                             cout << "Failed to set new sensor position" << endl;
                         printSensorPosition();
                     }
+                    else if(event.key.keysym.sym == SDLK_n)
+                    {
+                        if(!getSensorPosition())
+                            cout << "Failed to set new sensor position" << endl;
+                        printSensorPosition();
+                    }
                     break;
             }
         }
@@ -304,7 +364,8 @@ void Manager::printInstructions()
     msg += "Commands:\n";
     msg += "\tc - [C]apture points\n";
     msg += "\ts - [S]ave points\n";
-    msg += "\tp - Set the sensor [p]osition\n";
+    msg += "\tp - Set the sensor [p]osition from file\n";
+    msg += "\tn - Set the sensor position from [n]etwork\n";
     msg += "\th - Print these instructions\n";
     msg += "\tEsc - Quit\n\n";
 
@@ -319,6 +380,7 @@ void Manager::destroy()
     device.close();
     OpenNI::shutdown();
     displayer.destroy();
+    Dashboard::cleanAll();
 }
 
 

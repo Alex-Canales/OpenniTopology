@@ -8,9 +8,7 @@ endif()
 # set(CMAKE_VERBOSE_MAKEFILE true)
 
 find_package(SDL 1.2 REQUIRED)
-include_directories(${SDL_INCLUDE_DIRS})
-link_directories(${SDL_LIBRARY_DIRS})
-add_definitions(${SDL_DEFINITIONS})
+find_package(CURL REQUIRED)
 
 set(OPENNI2_DEFINITIONS ${PC_OPENNI_CFLAGS_OTHER})
 find_library(OPENNI2_LIBRARY
@@ -26,5 +24,5 @@ find_path(OPENNI2_INCLUDE_DIR OpenNI.h
           PATH_SUFFIXES openni2 ni2
 )
 
-add_executable(topologyTaker main.cpp displayer.cpp delaunay.c geometry.cpp kdtreeCentroid.cpp)
-target_link_libraries(topologyTaker ${SDL_LIBRARY} ${OPENNI2_LIBRARY})
+add_executable(topologyTaker main.cpp displayer.cpp delaunay.c geometry.cpp kdtreeCentroid.cpp dashboard.cpp)
+target_link_libraries(topologyTaker ${CURL_LIBRARIES} ${SDL_LIBRARY} ${OPENNI2_LIBRARY})
