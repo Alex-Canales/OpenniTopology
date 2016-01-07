@@ -26,6 +26,7 @@ public:
     static void setCallback(void (*callbackGetPosition)(bool, float, float, float));
     static bool getPosition();
     static bool setPosition(float x, float y, float z);
+    static bool sendGCodeCommand(char *command);
 
 };
 

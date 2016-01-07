@@ -14,6 +14,15 @@ public:
     float x, y, z;
 
     Point(float x=0, float y=0, float z=0): x(x), y(y), z(z) { }
+    Point(const Point& p): x(p.x), y(p.y), z(p.z) { }
+
+    Point& set(float x, float y, float z)
+    {
+        this->x = x;
+        this->y = y;
+        this->z = z;
+        return (*this);
+    }
 
     Point& add(Point point)
     {
@@ -25,9 +34,9 @@ public:
 
     Point& add(float x, float y, float z)
     {
-        x += x;
-        y += y;
-        z += z;
+        this->x += x;
+        this->y += y;
+        this->z += z;
         return (*this);
     }
 
@@ -41,9 +50,9 @@ public:
 
     Point& substract(float x, float y, float z)
     {
-        x -= x;
-        y -= y;
-        z -= z;
+        this->x -= x;
+        this->y -= y;
+        this->z -= z;
         return (*this);
     }
 

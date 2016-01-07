@@ -105,14 +105,14 @@ bool Dashboard::getPosition()
     return (curl_easy_perform(curl) == CURLE_OK);
 }
 
-bool Dashboard::setPosition(float x, float y, float z)
+bool Dashboard::sendGCodeCommand(char *command)
 {
     CURLcode res;
     std::string url = baseURL;
     url.append("/code");
 
     char postField[300];  //TODO: see if enough
-    sprintf(postField, "runtime=g&cmd=G0X%fY%fZ%f", x, y, z);
+    sprintf(postField, "runtime=g&cmd=%s", command);
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
@@ -121,4 +121,12 @@ bool Dashboard::setPosition(float x, float y, float z)
 
     res = curl_easy_perform(curl);
     return res == CURLE_OK;
+}
+
+//Use a G0 command
+bool Dashboard::setPosition(float x, float y, float z)
+{
+    char command[300];  //TODO: see if enough
+    sprintf(command, "G0X%fY%fZ%f", x, y, z);
+    return sendGCodeCommand(command);
 }

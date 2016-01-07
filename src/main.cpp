@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdio.h>
 #include <OpenNI.h>
+#include <rapidjson/document.h>
 
 #include "top_types.h"
 #include "displayer.h"
@@ -33,8 +34,15 @@ public:
     Device device;
     VideoStream depth;
     Displayer displayer;
+    v_Point pathToScan;
+    VideoFrameRef frame;
+    v_Point topology, capturedPoints;
 
-    std::string url;  //TODO: get the URL
+    std::string url;
+
+    bool updateDepthAndFrame();
+
+    bool processScanning();
 
     bool drawFrame(VideoFrameRef frame);
 
@@ -43,8 +51,9 @@ public:
     bool setSensorPosition();  //Returns false if problem
     void printSensorPosition();
 
+    bool loadConfig();
+
     //Network communication:
-    void initialiseDashboard();
     // Gives order to the machine to move the sensor
     bool moveSensorTo(float x, float y, float z);
     // Callback function when asking bit position
@@ -91,13 +100,102 @@ bool Manager::setSensorPosition()
     return true;
 }
 
-void Manager::initialiseDashboard()
+bool Manager::loadConfig()
 {
-    Dashboard::initialize(url, &(Manager::getSensorPositionCb));
+    std::cout << "===== loadConfig =====" << std::endl;
+    FILE* f = NULL;
+    f = fopen("config.json", "r");
+
+    if(!f)
+        return false;
+
+    std::cout << "Found file" << std::endl;
+
+    // Determine file size
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+
+    char* json = new char[size];
+
+    rewind(f);
+    fread(json, sizeof(char), size, f);
+
+    rapidjson::Document document;
+    document.Parse(json);
+
+    Point point(0, 0, 0);
+
+    if(document.IsObject())
+    {
+        if(document.HasMember("url") && document["url"].IsString())
+            url = document["url"].GetString();
+        else
+        {
+            std::cout << "No url found in config.json" << std::endl;
+            url = "";
+        }
+
+        if(document.HasMember("distanceBitSensor") &&
+                document["distanceBitSensor"].IsObject())
+        {
+            if(document["distanceBitSensor"].HasMember("x") &&
+                document["distanceBitSensor"].HasMember("y") &&
+                document["distanceBitSensor"].HasMember("z"))
+            {
+                point.x = document["distanceBitSensor"]["x"].GetDouble();
+                point.y = document["distanceBitSensor"]["y"].GetDouble();
+                point.z = document["distanceBitSensor"]["z"].GetDouble();
+            }
+        }
+        else
+            std::cout << "No distanceBitSensor found in config.json" << std::endl;
+
+        distanceBitSensor = point;
+
+        if(document.HasMember("pathToScan") && document["pathToScan"].IsArray())
+        {
+            for(unsigned int i=0; i < document["pathToScan"].Size(); i++)
+            {
+                if(document["pathToScan"][i].IsObject())
+                {
+                    if(document["pathToScan"][i].HasMember("x") &&
+                        document["pathToScan"][i].HasMember("y") &&
+                        document["pathToScan"][i].HasMember("z"))
+                    {
+                        point.x = document["pathToScan"][i]["x"].GetDouble();
+                        point.y = document["pathToScan"][i]["y"].GetDouble();
+                        point.z = document["pathToScan"][i]["z"].GetDouble();
+                        pathToScan.push_back(point);
+                    }
+                }
+            }
+        }
+        else
+            std::cout << "No pathToScan found in config.json" << std::endl;
+    }
+    else
+    {
+        url = "";
+        distanceBitSensor.set(0, 0, 0);
+        std::cout << "No config.json found" << std::endl;
+    }
+
+    std::cout << "Load config is done:" << std::endl;
+    std::cout << "url : " << url << std::endl;
+    std::cout << "dist: " << "(" << distanceBitSensor.x << "; " << distanceBitSensor.y << "; " << distanceBitSensor.z << ")" << std::endl;
+    std::cout << "Path size: " << pathToScan.size() << std::endl;
+
+    fclose(f);
+    delete[] json;
+
+    return true;
 }
+
 
 bool Manager::moveSensorTo(float x, float y, float z)
 {
+    Point position(sensorPosition);
+    position.substract(distanceBitSensor);
     return Dashboard::setPosition(x, y, z);
 }
 
@@ -141,6 +239,27 @@ bool Manager::savePointsToFile(v_Point points, std::string fileName)
     }
 
     file.close();
+    return true;
+}
+
+//Scan the body (do not do the topology)
+bool Manager::processScanning()
+{
+    std::cout << "Processing scanning" << std::endl;
+    for(size_t i=0; i < pathToScan.size(); i++)
+    {
+        std::cout << "(" << pathToScan[i].x << "; " << pathToScan[i].y << "; " << pathToScan[i].z << ")" << std::endl;
+        moveSensorTo(pathToScan[i].x, pathToScan[i].y, pathToScan[i].z);
+        if(!getSensorPosition())
+        {
+            std::cout << "Impossible to process scanning (impossible de have ";
+            std::cout << "the sensor position." << std::endl;
+            return false;
+        }
+        updateDepthAndFrame();
+        addRealPoints(depth, frame, capturedPoints);
+    }
+    std::cout << "End processing scanning" << std::endl;
     return true;
 }
 
@@ -255,7 +374,46 @@ bool Manager::initialize()
         return false;
     }
 
-    initialiseDashboard();
+    loadConfig();
+
+    Dashboard::initialize(url, &(Manager::getSensorPositionCb));
+
+    return true;
+}
+
+bool Manager::updateDepthAndFrame()
+{
+    Status rc;
+    int changedStreamDummy;
+    VideoStream* pStream = &depth;
+
+    if(pStream->getMirroringEnabled())
+        pStream->setMirroringEnabled(false);
+
+    rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy,
+            SAMPLE_READ_WAIT_TIMEOUT);
+    if(rc != STATUS_OK)
+    {
+        std::cerr << "Wait failed! (timeout is " << SAMPLE_READ_WAIT_TIMEOUT;
+        std::cerr <<" ms)" << std::endl;
+        std::cerr << OpenNI::getExtendedError() << std::endl;
+        return false;
+    }
+
+    rc = depth.readFrame(&frame);
+    if(rc != STATUS_OK)
+    {
+        std::cerr <<"Read failed!" << std::endl;
+        std::cerr << OpenNI::getExtendedError() << std::endl;
+        return false;
+    }
+
+    if(frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_1_MM &&
+            frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_100_UM)
+    {
+        std::cerr <<"Unexpected frame format" << std::endl;
+        return false;
+    }
 
     return true;
 }
@@ -263,49 +421,18 @@ bool Manager::initialize()
 void Manager::mainLoop()
 {
     Status rc;
-    VideoFrameRef frame;
     bool toContinue(true);
-    vector<Point> topology, capturedPoints;
     SDL_Event event;
-
-    clock_t c_start, c_end;
 
     setSensorPosition();
 
     printInstructions();
+    processScanning();
 
     while(toContinue)
     {
-        int changedStreamDummy;
-        VideoStream* pStream = &depth;
-
-        if(pStream->getMirroringEnabled())
-            pStream->setMirroringEnabled(false);
-
-        rc = OpenNI::waitForAnyStream(&pStream, 1, &changedStreamDummy,
-                SAMPLE_READ_WAIT_TIMEOUT);
-        if(rc != STATUS_OK)
-        {
-            std::cerr << "Wait failed! (timeout is " << SAMPLE_READ_WAIT_TIMEOUT;
-            std::cerr <<" ms)" << std::endl;
-            std::cerr << OpenNI::getExtendedError() << std::endl;
+        if(!updateDepthAndFrame())
             continue;
-        }
-
-        rc = depth.readFrame(&frame);
-        if(rc != STATUS_OK)
-        {
-            std::cerr <<"Read failed!" << std::endl;
-            std::cerr << OpenNI::getExtendedError() << std::endl;
-            continue;
-        }
-
-        if(frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_1_MM &&
-            frame.getVideoMode().getPixelFormat() != PIXEL_FORMAT_DEPTH_100_UM)
-        {
-            std::cerr <<"Unexpected frame format" << std::endl;
-            continue;
-        }
 
         while(SDL_PollEvent(&event))
         {
