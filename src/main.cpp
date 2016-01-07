@@ -202,23 +202,33 @@ bool Manager::moveSensorTo(float x, float y, float z)
 //Set sensor position (this function is used as callback for dashboard)
 void Manager::getSensorPositionCb(bool result, float x, float y, float z)
 {
-    sensorSetted = true;
+    std::cout << "getSensorPositionCb" << std::endl;
 
     if(!result)
+    {
+        sensorSetted = true;
         return;
+    }
 
     sensorPosition.x = x;
     sensorPosition.y = y;
     sensorPosition.z = z;
+    sensorSetted = true;
 }
 
 bool Manager::getSensorPosition()
 {
+    std::cout << "getSensorPosition" << std::endl;
     if(!Dashboard::getPosition())
         return false;
     sensorSetted = false;
 
-    while(!sensorSetted);
+    std::cout << "The ride never ends!" << std::endl;
+
+    while(!sensorSetted)
+    {
+        std::cout << "Waiting for the sensorSetted" << std::endl;
+    }
 
     //TODO: have if problem (if result of callback is false)
 
@@ -248,12 +258,14 @@ bool Manager::processScanning()
     std::cout << "Processing scanning" << std::endl;
     for(size_t i=0; i < pathToScan.size(); i++)
     {
-        std::cout << "(" << pathToScan[i].x << "; " << pathToScan[i].y << "; " << pathToScan[i].z << ")" << std::endl;
+        cout << "Processing scan for: " << "(" << pathToScan[i].x << "; ";
+        cout  << pathToScan[i].y << "; " << pathToScan[i].z << ")" << endl;
+
         moveSensorTo(pathToScan[i].x, pathToScan[i].y, pathToScan[i].z);
         if(!getSensorPosition())
         {
             std::cout << "Impossible to process scanning (impossible de have ";
-            std::cout << "the sensor position." << std::endl;
+            std::cout << "the sensor position)" << std::endl;
             return false;
         }
         updateDepthAndFrame();
@@ -376,7 +388,9 @@ bool Manager::initialize()
 
     loadConfig();
 
+    std::cout << "Initialize with url: " << url << std::endl;
     Dashboard::initialize(url, &(Manager::getSensorPositionCb));
+    std::cout << "Dashboard::baseURL: " << Dashboard::baseURL  << std::endl;
 
     return true;
 }

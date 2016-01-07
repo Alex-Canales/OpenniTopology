@@ -2,6 +2,8 @@
 #include <curl/curl.h>
 #include <rapidjson/document.h>
 
+#include <iostream>
+
 #include "dashboard.h"
 
 std::string Dashboard::baseURL = "";
@@ -13,7 +15,8 @@ void Dashboard::initialize(std::string baseURL,
         void (*callbackGetPosition)(bool, float, float, float))
 {
     //TODO: open connection for test
-    baseURL = baseURL;
+    Dashboard::baseURL = baseURL;
+    std::cout << "Now baseURL=" << baseURL << std::endl;
     callback = callbackGetPosition;
     curl_global_init(CURL_GLOBAL_ALL);  //In windows, init the winsock stuff
     curl = curl_easy_init();
@@ -48,17 +51,21 @@ void Dashboard::setCallback(void (*callbackGetPosition)(bool, float, float, floa
 
 size_t Dashboard::dataParser(char* buf, size_t size, size_t nmemb, void* up)
 {
+    std::cout << "dataParser" << std::endl;
     float x = 0, y = 0, z = 0;
     std::string data;
 
+    std::cout << "1" << std::endl;
     if(callback == NULL)
         return 0;
 
+    std::cout << "2" << std::endl;
     for(size_t c = 0; c < size*nmemb; c++)
     {
         data.push_back(buf[c]);
     }
 
+    std::cout << "3" << std::endl;
     if(buf == NULL)
         callback(false, x, y, z);
 
@@ -99,8 +106,10 @@ bool Dashboard::getPosition()
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, 0);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &dataParser);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &(Dashboard::dataParser));
+
+    std::cout << "Dashboard::getPosition" << std::endl;
 
     return (curl_easy_perform(curl) == CURLE_OK);
 }
