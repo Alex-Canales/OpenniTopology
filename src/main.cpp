@@ -28,7 +28,7 @@ public:
     void mainLoop();
     void destroy();
     static Point sensorPosition;
-    Point distanceBitSensor;
+    static Point distanceBitSensor;
     static bool sensorSetted;  //Changing the name? More "callbackCalled"
 // private:
     Device device;
@@ -72,6 +72,7 @@ public:
 };
 
 Point Manager::sensorPosition;
+Point Manager::distanceBitSensor;
 bool Manager::sensorSetted = false;
 
 void Manager::printSensorPosition()
@@ -192,47 +193,83 @@ bool Manager::loadConfig()
 }
 
 
+// Wait until at the position. Return false if problem (no connexion or not moving)
 bool Manager::moveSensorTo(float x, float y, float z)
 {
-    Point position(sensorPosition);
-    position.substract(distanceBitSensor);
-    return Dashboard::setPosition(x, y, z);
+    Point currentPosition = sensorPosition;
+    bool commandSent = false;
+
+        std::cout << "[[[[ Move sensor to ======" << std::endl;
+        cout << "Move to: " << "(" << x << "; " << y << "; " << z << ")" << endl;
+
+        x -= distanceBitSensor.x;
+        y -= distanceBitSensor.y;
+        z -= distanceBitSensor.z;
+
+        cout << "Really move to: " << "(" << x << "; ";
+        cout << y << "; " << z << ")" << endl;
+        std::cout << "====== Move sensor to ]]]]" << std::endl;
+
+    for(int i=0; i < 3; i++)
+    {
+        if(Dashboard::setPosition(x, y, z))
+        {
+            commandSent = true;
+            break;
+        }
+    }
+
+    std::cout << "commandSent:" << commandSent << std::endl;
+
+    if(!commandSent)
+        return false;
+
+    return true;
+    // //Wait until the end of the job
+    // //TODO: test if connection problem
+    // while(Dashboard::isRunning() != DASHBOARD_TRUE);
+    //
+    // getSensorPosition();
+    //
+    // return (sensorPosition.x == x && sensorPosition.y == y &&
+    //         sensorPosition.z == z);
+
+    // return true;
 }
 
 //Set sensor position (this function is used as callback for dashboard)
 void Manager::getSensorPositionCb(bool result, float x, float y, float z)
 {
-    std::cout << "getSensorPositionCb" << std::endl;
-
-    if(!result)
+    //Receiving bit position (not sensor position)
+    if(result)
     {
+        std::cout << "[[[[ Sensor position cb ======" << std::endl;
+        cout << "Bit:" << "(" << x << "; " << y << "; " << z << ")" << endl;
+        sensorPosition.x = x + distanceBitSensor.x;
+        sensorPosition.y = y + distanceBitSensor.y;
+        sensorPosition.z = z + distanceBitSensor.z;
         sensorSetted = true;
-        return;
+        cout << "sensorPosition: " << "(" << sensorPosition.x << "; ";
+        cout << sensorPosition.y << "; " << sensorPosition.z << ")" << endl;
+        std::cout << "====== Sensor position cb ]]]]" << std::endl;
     }
 
-    sensorPosition.x = x;
-    sensorPosition.y = y;
-    sensorPosition.z = z;
-    sensorSetted = true;
+    return;
 }
 
 bool Manager::getSensorPosition()
 {
-    std::cout << "getSensorPosition" << std::endl;
-    if(!Dashboard::getPosition())
-        return false;
+    int i = 3;
     sensorSetted = false;
-
-    std::cout << "The ride never ends!" << std::endl;
-
-    while(!sensorSetted)
+    while(i > 0)
     {
-        std::cout << "Waiting for the sensorSetted" << std::endl;
+        //Test if manage to send a request and the given answer is correct
+        if(Dashboard::getPosition() && sensorSetted)
+            return true;
+        i--;
     }
 
-    //TODO: have if problem (if result of callback is false)
-
-    return true;
+    return false;
 }
 
 bool Manager::savePointsToFile(v_Point points, std::string fileName)
@@ -264,10 +301,12 @@ bool Manager::processScanning()
         moveSensorTo(pathToScan[i].x, pathToScan[i].y, pathToScan[i].z);
         if(!getSensorPosition())
         {
-            std::cout << "Impossible to process scanning (impossible de have ";
+            std::cout << "Impossible to process scanning (impossible to have ";
             std::cout << "the sensor position)" << std::endl;
             return false;
         }
+        cout << "Position: " << "(" << sensorPosition.x << "; ";
+        cout  << sensorPosition.y << "; " << sensorPosition.z << ")" << endl;
         updateDepthAndFrame();
         addRealPoints(depth, frame, capturedPoints);
     }
@@ -391,6 +430,8 @@ bool Manager::initialize()
     std::cout << "Initialize with url: " << url << std::endl;
     Dashboard::initialize(url, &(Manager::getSensorPositionCb));
     std::cout << "Dashboard::baseURL: " << Dashboard::baseURL  << std::endl;
+
+    getSensorPosition();
 
     return true;
 }

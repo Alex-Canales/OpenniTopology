@@ -10,6 +10,7 @@ std::string Dashboard::baseURL = "";
 CURL* Dashboard::curl = NULL;
 curl_slist* Dashboard::headers = NULL;
 void(* Dashboard::callback)(bool, float, float, float);
+bool Dashboard::isRunningHolder = false;
 
 void Dashboard::initialize(std::string baseURL,
         void (*callbackGetPosition)(bool, float, float, float))
@@ -49,23 +50,20 @@ void Dashboard::setCallback(void (*callbackGetPosition)(bool, float, float, floa
     callback = callbackGetPosition;
 }
 
-size_t Dashboard::dataParser(char* buf, size_t size, size_t nmemb, void* up)
+size_t Dashboard::dataParserPosition(char* buf, size_t size, size_t nmemb,
+        void* up)
 {
-    std::cout << "dataParser" << std::endl;
     float x = 0, y = 0, z = 0;
     std::string data;
 
-    std::cout << "1" << std::endl;
-    if(callback == NULL)
-        return 0;
-
-    std::cout << "2" << std::endl;
     for(size_t c = 0; c < size*nmemb; c++)
     {
         data.push_back(buf[c]);
     }
 
-    std::cout << "3" << std::endl;
+    if(callback == NULL)
+        return size*nmemb; //tell curl how many bytes we handled
+
     if(buf == NULL)
         callback(false, x, y, z);
 
@@ -107,7 +105,7 @@ bool Dashboard::getPosition()
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &(Dashboard::dataParser));
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &dataParserPosition);
 
     std::cout << "Dashboard::getPosition" << std::endl;
 
@@ -138,4 +136,59 @@ bool Dashboard::setPosition(float x, float y, float z)
     char command[300];  //TODO: see if enough
     sprintf(command, "G0X%fY%fZ%f", x, y, z);
     return sendGCodeCommand(command);
+}
+
+size_t Dashboard::dataParserStatus(char* buf, size_t size, size_t nmemb,
+        void* up)
+{
+    std::string data;
+
+    for(size_t c = 0; c < size*nmemb; c++)
+    {
+        data.push_back(buf[c]);
+    }
+
+    rapidjson::Document document;
+    document.Parse(buf);
+
+    if(!document.IsObject())
+        return size*nmemb; //tell curl how many bytes we handled
+
+    if(!document.HasMember("data") || !document["data"].IsObject())
+        return size*nmemb; //tell curl how many bytes we handled
+
+    if(!document["data"].HasMember("status") ||
+            !document["data"]["status"].IsObject())
+    {
+        return size*nmemb; //tell curl how many bytes we handled
+    }
+
+    if(!document["data"]["status"].HasMember("state"))
+    {
+        return size*nmemb; //tell curl how many bytes we handled
+    }
+
+    data = document["data"]["status"]["state"].GetString();
+
+    //TODO: find a way to give this information
+    isRunningHolder = (data == "running");
+
+    return size*nmemb; //tell curl how many bytes we handled
+}
+int Dashboard::isRunning()
+{
+    std::string url = baseURL;
+    url.append("/status");
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &dataParserStatus);
+
+    std::cout << "Dashboard::getPosition" << std::endl;
+
+    if(curl_easy_perform(curl) != CURLE_OK)
+        return DASHBOARD_CONNECTION_ERROR;
+
+    return (isRunningHolder) ? DASHBOARD_TRUE : DASHBOARD_FALSE;
 }
