@@ -17,6 +17,31 @@
 using namespace openni;
 using namespace std;
 
+//Read the file and put in stringHolder. Returns false if error
+bool getFileContent(string filename, string &stringHolder)
+{
+    FILE* f = NULL;
+    stringHolder = "";
+    char c = 'j';  //Will not let me do c = ''
+    f = fopen(filename.c_str(), "r");
+
+    if(!f)
+        return false;
+
+    // Using an old and RELIABLE method
+    while(true)
+    {
+        c = fgetc(f);
+        if(c == EOF)
+            break;
+        stringHolder.push_back(c);
+    }
+
+    fclose(f);
+
+    return true;
+}
+
 /**
  * Class setting the parameters and doing the interactions/interface.
  */
@@ -105,24 +130,16 @@ bool Manager::loadConfig()
 {
     std::cout << "===== loadConfig =====" << std::endl;
     FILE* f = NULL;
-    f = fopen("config.json", "r");
-
-    if(!f)
-        return false;
-
-    std::cout << "Found file" << std::endl;
-
-    // Determine file size
-    fseek(f, 0, SEEK_END);
-    size_t size = ftell(f);
-
-    char* json = new char[size];
-
-    rewind(f);
-    fread(json, sizeof(char), size, f);
-
+    string json;
     rapidjson::Document document;
-    document.Parse(json);
+
+    if(!getFileContent("config.json", json))
+    {
+        std::cout << "No config.json found" << std::endl;
+        return false;
+    }
+
+    document.Parse(json.c_str());
 
     Point point(0, 0, 0);
 
@@ -178,16 +195,13 @@ bool Manager::loadConfig()
     {
         url = "";
         distanceBitSensor.set(0, 0, 0);
-        std::cout << "No config.json found" << std::endl;
+        std::cout << "config.json is not a json" << std::endl;
     }
 
     std::cout << "Load config is done:" << std::endl;
     std::cout << "url : " << url << std::endl;
     std::cout << "dist: " << "(" << distanceBitSensor.x << "; " << distanceBitSensor.y << "; " << distanceBitSensor.z << ")" << std::endl;
     std::cout << "Path size: " << pathToScan.size() << std::endl;
-
-    fclose(f);
-    delete[] json;
 
     return true;
 }
@@ -196,45 +210,44 @@ bool Manager::loadConfig()
 // Wait until at the position. Return false if problem (no connexion or not moving)
 bool Manager::moveSensorTo(float x, float y, float z)
 {
-    Point currentPosition = sensorPosition;
     bool commandSent = false;
+    Point bitPosition(x, y, z);
+    bitPosition.substract(distanceBitSensor);
 
-        std::cout << "[[[[ Move sensor to ======" << std::endl;
-        cout << "Move to: " << "(" << x << "; " << y << "; " << z << ")" << endl;
-
-        x -= distanceBitSensor.x;
-        y -= distanceBitSensor.y;
-        z -= distanceBitSensor.z;
-
-        cout << "Really move to: " << "(" << x << "; ";
-        cout << y << "; " << z << ")" << endl;
-        std::cout << "====== Move sensor to ]]]]" << std::endl;
+    std::cout << "[[[[ Move sensor to ======" << std::endl;
+    cout << "Move to: " << "(" << x << "; " << y << "; " << z << ")" << endl;
+    cout << "Bit move to: " << "(" << bitPosition.x << "; ";
+    cout << bitPosition.y << "; " << bitPosition.z << ")" << endl;
 
     for(int i=0; i < 3; i++)
     {
-        if(Dashboard::setPosition(x, y, z))
+        if(Dashboard::setPosition(bitPosition.x, bitPosition.y, bitPosition.z))
         {
             commandSent = true;
             break;
         }
     }
 
-    std::cout << "commandSent:" << commandSent << std::endl;
-
     if(!commandSent)
         return false;
 
-    return true;
-    // //Wait until the end of the job
-    // //TODO: test if connection problem
-    // while(Dashboard::isRunning() != DASHBOARD_TRUE);
-    //
-    // getSensorPosition();
-    //
-    // return (sensorPosition.x == x && sensorPosition.y == y &&
-    //         sensorPosition.z == z);
+    //TODO: find a way to correct race condition
+    std::cout << "start sleeping" << std::endl;
+    system("sleep 1");
 
     // return true;
+    //Wait until the end of the job
+    //TODO: test if connection problem
+    while(Dashboard::isRunning() == DASHBOARD_TRUE);
+
+    getSensorPosition();
+
+    cout << "Sensor position at the end: " << "(" << sensorPosition.x << "; ";
+    cout << sensorPosition.y << "; " << sensorPosition.z << ")" << endl;
+
+    std::cout << "====== Move sensor to ]]]]" << std::endl;
+    return (sensorPosition.x == x && sensorPosition.y == y &&
+            sensorPosition.z == z);
 }
 
 //Set sensor position (this function is used as callback for dashboard)
@@ -298,16 +311,16 @@ bool Manager::processScanning()
         cout << "Processing scan for: " << "(" << pathToScan[i].x << "; ";
         cout  << pathToScan[i].y << "; " << pathToScan[i].z << ")" << endl;
 
-        moveSensorTo(pathToScan[i].x, pathToScan[i].y, pathToScan[i].z);
-        if(!getSensorPosition())
+        std::cout << "Asking to move" << std::endl;
+        if(!moveSensorTo(pathToScan[i].x, pathToScan[i].y, pathToScan[i].z))
         {
-            std::cout << "Impossible to process scanning (impossible to have ";
-            std::cout << "the sensor position)" << std::endl;
+            std::cout << "We cannot move the tool correctly" << std::endl;
             return false;
         }
-        cout << "Position: " << "(" << sensorPosition.x << "; ";
-        cout  << sensorPosition.y << "; " << sensorPosition.z << ")" << endl;
+        std::cout << "Move is done" << std::endl;
+        std::cout << "Scanning" << std::endl;
         updateDepthAndFrame();
+        std::cout << "Add real points" << std::endl;
         addRealPoints(depth, frame, capturedPoints);
     }
     std::cout << "End processing scanning" << std::endl;

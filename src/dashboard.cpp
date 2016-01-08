@@ -143,6 +143,8 @@ size_t Dashboard::dataParserStatus(char* buf, size_t size, size_t nmemb,
 {
     std::string data;
 
+    std::cout << "Parsing status" << std::endl;
+
     for(size_t c = 0; c < size*nmemb; c++)
     {
         data.push_back(buf[c]);
@@ -169,12 +171,15 @@ size_t Dashboard::dataParserStatus(char* buf, size_t size, size_t nmemb,
     }
 
     data = document["data"]["status"]["state"].GetString();
+    std::cout << "data ======= " << data << std::endl;
 
-    //TODO: find a way to give this information
     isRunningHolder = (data == "running");
+
+    std::cout << "isRunningHolder ==" << isRunningHolder << std::endl;
 
     return size*nmemb; //tell curl how many bytes we handled
 }
+
 int Dashboard::isRunning()
 {
     std::string url = baseURL;
@@ -185,10 +190,25 @@ int Dashboard::isRunning()
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, &dataParserStatus);
 
-    std::cout << "Dashboard::getPosition" << std::endl;
+    std::cout << "Dashboard::isRunning" << std::endl;
 
     if(curl_easy_perform(curl) != CURLE_OK)
+    {
+        std::cout << "Error" << std::endl;
         return DASHBOARD_CONNECTION_ERROR;
+    }
 
-    return (isRunningHolder) ? DASHBOARD_TRUE : DASHBOARD_FALSE;
+    std::cout << "IsRunning(): isRunningHolder" << isRunningHolder << std::endl;
+    std::cout << "test: " << (isRunningHolder == true) << std::endl;
+
+    if(isRunningHolder)
+    {
+        std::cout << "true" << std::endl;
+        return DASHBOARD_TRUE;
+    }
+    else
+    {
+        std::cout << "false" << std::endl;
+        return DASHBOARD_FALSE;
+    }
 }
